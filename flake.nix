@@ -1,3 +1,4 @@
+cat flake.nix
 {
   description = "NixOS Jump Host with Caddy, Docker, Headscale, PowerDNS, PowerDNS-Admin, Auto-Updates";
 
@@ -66,10 +67,70 @@
               webserver=yes
               webserver-address=127.0.0.1
               webserver-port=8081
+              local-port=5300
               default-ttl=60
               allow-axfr-ips=127.0.0.1
             '';
           };
+          let
+            pdnsSchema = pkgs.writeText "pdns-schema.sql" ''
+              PRAGMA foreign_keys = 1;
+          
+              CREATE TABLE domains (
+                id                    INTEGER PRIMARY KEY,
+                name                  VARCHAR(255) NOT NULL COLLATE NOCASE,
+                master                VARCHAR(128) DEFAULT NULL,
+                last_check            INTEGER DEFAULT NULL,
+                type                  VARCHAR(8) NOT NULL,
+                notified_serial       INTEGER DEFAULT NULL,
+                account               VARCHAR(40) DEFAULT NULL,
+                options               VARCHAR(65535) DEFAULT NULL,
+                catalog               VARCHAR(255) DEFAULT NULL
+              );
+          
+              CREATE UNIQUE INDEX name_index ON domains(name);
+              CREATE INDEX catalog_idx ON domains(catalog);
+          
+              CREATE TABLE records (
+                id                    INTEGER PRIMARY KEY,
+                domain_id             INTEGER DEFAULT NULL,
+                name                  VARCHAR(255) DEFAULT NULL,
+                type                  VARCHAR(10) DEFAULT NULL,
+                content               VARCHAR(65535) DEFAULT NULL,
+                ttl                   INTEGER DEFAULT NULL,
+                prio                  INTEGER DEFAULT NULL,
+                disabled              BOOLEAN DEFAULT 0,
+                ordername             VARCHAR(255),
+                auth                  BOOL DEFAULT 1,
+                FOREIGN KEY(domain_id) REFERENCES domains(id) ON DELETE CASCADE ON UPDATE CASCADE
+              );
+          
+              CREATE INDEX records_lookup_idx ON records(name, type);
+              CREATE INDEX records_lookup_id_idx ON records(domain_id, name, type);
+              CREATE INDEX records_order_idx ON records(domain_id, ordername);
+          
+              CREATE TABLE supermasters (
+                ip                    VARCHAR(64) NOT NULL,
+                nameserver            VARCHAR(255) NOT NULL COLLATE NOCASE,
+                account               VARCHAR(40) NOT NULL
+              );
+          
+              CREATE UNIQUE INDEX ip_nameserver_pk ON supermasters(ip, nameserver);
+            '';
+          in
+          {
+            systemd.services.pdns-init-db = {
+              description = "Initialize PowerDNS SQLite Database";
+              after = ["network.target"];
+              wantedBy = ["multi-user.target"];
+              serviceConfig = {
+                Type = "oneshot";
+                ExecStart = "${pkgs.sqlite}/bin/sqlite3 /var/lib/powerdns/pdns.sqlite3 < ${pdnsSchema}";
+                ExecStartPost = "${pkgs.coreutils}/bin/chown -R pdns:pdns /var/lib/powerdns";
+                ExecStartPost = "${pkgs.coreutils}/bin/chmod 750 /var/lib/powerdns";
+              };
+            };
+          }
 
           services.prometheus.exporters.node = {
             enable = true;
@@ -80,7 +141,7 @@
 
           services.resolved = {
           enable = false;};
-
+          networking.nameservers = [ "1.1.1.1" "9.9.9.9" ];
           services.caddy = {
             enable = true;
             virtualHosts."jump.yornik.nl".extraConfig = ''
@@ -105,11 +166,18 @@
                 }
             '';
           };
-
-            systemd.tmpfiles.rules = [
+          services.pdns-recursor = {
+          enable = true;
+          forwardZones = {
+               "new.yornik.nl" = "127.0.0.1:5300";
+           };
+          };
+          systemd.tmpfiles.rules = [
              "d /opt/headscale 0755 root root -"
              "d /opt/headscale/data 0755 root root -"
              "d /opt/pdns-admin 0755 root root -"
+             "d /var/lib/pdns 0750 pdns pdns"
+             "f /var/lib/pdns/pdns.sqlite3 0640 pdns pdns - -"
             ];
           systemd.services.headscale-docker = {
             description = "Headscale Docker Compose";
@@ -161,4 +229,3 @@
     };
   };
 }
-
