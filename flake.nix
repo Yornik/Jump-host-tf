@@ -3,31 +3,16 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
-    flake-utils.url = "github:numtide/flake-utils";
     disko.url = "github:nix-community/disko";
   };
 
-  outputs = { self, nixpkgs, flake-utils, disko }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = import nixpkgs {
-          inherit system;
-        };
-      in {
-        packages.default = pkgs.hello;
-      }) // {
-
+  outputs = { self, nixpkgs, disko }: {
     nixosConfigurations.jump = nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
-
       modules = [
         disko.nixosModules.disko
         ./disko-config.nix
-        ({ config, pkgs, ... }:
-         let
-           secrets = import ./secrets.nix;
-         in {
-
+        ({ config, pkgs, ... }: {
           imports = [ ];
 
           networking.hostName = "jump";
@@ -37,6 +22,10 @@
 
           i18n.defaultLocale = "en_US.UTF-8";
           console.keyMap = "us";
+
+          boot.loader.systemd-boot.enable = true;
+          boot.loader.efi.canTouchEfiVariables = true;
+          boot.loader.efi.efiSysMountPoint = "/boot";
 
           services.openssh.enable = true;
 
@@ -60,10 +49,9 @@
 
           virtualisation.docker.enable = true;
 
-          services.pdns = {
+          services.powerdns = {
             enable = true;
-            package = pkgs.pdns;
-            configText = ''
+            extraConfig = ''
               launch=gsqlite3
               gsqlite3-database=/var/lib/pdns/pdns.sqlite3
               api=yes
@@ -76,6 +64,7 @@
               allow-axfr-ips=127.0.0.1
             '';
           };
+
           services.prometheus.exporters.node = {
             enable = true;
             port = 9100;
