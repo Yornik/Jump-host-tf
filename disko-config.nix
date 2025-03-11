@@ -11,6 +11,7 @@
             ESP = {
               type = "EF00";
               size = "500M";
+              label = "nixos-boot";
               content = {
                 type = "filesystem";
                 format = "vfat";
@@ -20,6 +21,7 @@
             };
             root = {
               size = "100%";
+              label = "nixos-root";
               content = {
                 type = "filesystem";
                 format = "ext4";

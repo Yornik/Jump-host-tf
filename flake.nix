@@ -4,14 +4,17 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
     disko.url = "github:nix-community/disko";
+    nixos-facter-modules.url = "github:nix-community/nixos-facter-modules";
   };
 
-  outputs = { self, nixpkgs, disko }: {
+  outputs = { self, nixpkgs, disko, nixos-facter-modules }: {
     nixosConfigurations.jump = nixpkgs.lib.nixosSystem {
       system = "aarch64-linux";
       modules = [
         disko.nixosModules.disko
         ./disko-config.nix
+        nixos-facter-modules.nixosModules.facter
+        { facter.reportPath = ./facter.json; }
         ({ config, pkgs, ... }:
         let
           secrets = import ./secrets.nix;
@@ -31,6 +34,7 @@
           boot.initrd.kernelModules = [ "virtio_gpu" ];
           boot.kernelParams = [ "console=tty" ];
           services.openssh.enable = true;
+
 
           users.users.root = {
             isNormalUser = false;
@@ -62,7 +66,6 @@
               webserver=yes
               webserver-address=127.0.0.1
               webserver-port=8081
-              default-soa-mail=admin.yornik.nl
               default-ttl=60
               allow-axfr-ips=127.0.0.1
             '';
@@ -77,8 +80,7 @@
 
           services.caddy = {
             enable = true;
-            config = ''
-              jump.yornik.nl {
+            virtualHosts."jump.yornik.nl".extraconfig = ''
                 handle_path /tailscale* {
                   reverse_proxy 127.0.0.1:3001 {
                     transport http {
@@ -98,10 +100,14 @@
                 handle {
                   reverse_proxy 127.0.0.1:8080
                 }
-              }
             '';
           };
 
+            systemd.tmpfiles.rules = [
+             "d /opt/headscale 0755 root root -"
+             "d /opt/headscale/data 0755 root root -"
+             "d /opt/pdns-admin 0755 root root -"
+            ];
           systemd.services.headscale-docker = {
             description = "Headscale Docker Compose";
             after = [ "network.target" "docker.service" ];
