@@ -80,7 +80,7 @@
 
           services.caddy = {
             enable = true;
-            virtualHosts."jump.yornik.nl".extraconfig = ''
+            virtualHosts."jump.yornik.nl".extraConfig = ''
                 handle_path /tailscale* {
                   reverse_proxy 127.0.0.1:3001 {
                     transport http {
