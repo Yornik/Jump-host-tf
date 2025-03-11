@@ -12,9 +12,11 @@
       modules = [
         disko.nixosModules.disko
         ./disko-config.nix
-        ({ config, pkgs, ... }: {
+        ({ config, pkgs, ... }:
+        let
+          secrets = import ./secrets.nix;
+        in {
           imports = [ ];
-
           networking.hostName = "jump";
           networking.firewall.allowedTCPPorts = [ 22 80 443 53 8081 9191 ];
 
@@ -26,7 +28,8 @@
           boot.loader.systemd-boot.enable = true;
           boot.loader.efi.canTouchEfiVariables = true;
           boot.loader.efi.efiSysMountPoint = "/boot";
-
+          boot.initrd.kernelModules = [ "virtio_gpu" ];
+          boot.kernelParams = [ "console=tty" ];
           services.openssh.enable = true;
 
           users.users.root = {

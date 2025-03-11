@@ -1,37 +1,32 @@
 { config, lib, ... }:
-
 {
   disko.devices = {
     disk = {
-      main = {
-        type = "disk";
+      my-disk = {
         device = "/dev/sda";
+        type = "disk";
         content = {
           type = "gpt";
-          partitions = [
-            {
-              name = "ESP";
-              start = "1MiB";
-              size = "512MiB";
+          partitions = {
+            ESP = {
               type = "EF00";
+              size = "500M";
               content = {
                 type = "filesystem";
                 format = "vfat";
                 mountpoint = "/boot";
+                mountOptions = [ "umask=0077" ];
               };
-            }
-            {
-              name = "root";
-              start = "513MiB";
+            };
+            root = {
               size = "100%";
-              type = "8300";
               content = {
                 type = "filesystem";
                 format = "ext4";
                 mountpoint = "/";
               };
-            }
-          ];
+            };
+          };
         };
       };
     };
