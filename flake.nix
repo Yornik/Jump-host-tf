@@ -79,7 +79,7 @@
           };
 
           services.resolved = {
-          enable = true;};
+          enable = false;};
 
           services.caddy = {
             enable = true;
