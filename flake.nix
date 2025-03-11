@@ -78,6 +78,9 @@
             openFirewall = false;
           };
 
+          services.resolved = {
+          enable = true;}
+
           services.caddy = {
             enable = true;
             virtualHosts."jump.yornik.nl".extraConfig = ''
