@@ -14,10 +14,13 @@ provider "hcloud" {
 resource "hcloud_server" "jump" {
   name        = "jump-host"
   server_type = "cax21"
-  image       = "ubuntu-22.04"
+  image       = "ubuntu-24.04"
   location    = "fsn1" # or nbg1 / hel1
   ssh_keys    = [hcloud_ssh_key.default.id]
-  ipv6        = true
+  public_net {
+    ipv4_enabled = true
+    ipv6_enabled = true
+  }
 }
 
 resource "hcloud_ssh_key" "default" {
