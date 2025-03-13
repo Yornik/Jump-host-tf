@@ -1,0 +1,12 @@
+---
+
+- name: Restart SSH
+  service:
+    name: ssh
+    state: restarted
+- name: Apply sysctl settings
+  command: sysctl --system
+- name: Reload UFW
+  command: ufw reload
+
+

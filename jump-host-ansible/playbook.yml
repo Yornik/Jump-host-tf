@@ -1,0 +1,14 @@
+- name: Configure Jump Host Server
+  hosts: jump
+  become: true
+
+  roles:
+    - common
+    - caddy
+    - headscale
+    - headscale-admin
+    - powerdns
+    - powerdns-admin
+    - tailscale
+    - node-exporter
+    - promtail

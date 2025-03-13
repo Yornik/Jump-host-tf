@@ -1,0 +1,205 @@
+---
+
+- name: Update apt and upgrade everything
+  apt:
+    update_cache: yes
+    upgrade: dist
+
+- name: Install base packages
+  apt:
+    name:
+      - vim
+      - curl
+      - git
+      - ufw
+      - fail2ban
+      - sqlite3
+      - unattended-upgrades
+      - gnupg
+      - zsh
+      - apt-transport-https
+      - software-properties-common
+    state: present
+
+- name: Install Docker dependencies
+  apt:
+    name:
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+    state: present
+
+- name: Add Docker GPG key
+  ansible.builtin.apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Add Docker apt repository
+  ansible.builtin.apt_repository:
+    repo: deb [arch=arm64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+    state: present
+    filename: docker
+
+- name: Install Docker and Docker Compose
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true
+
+- name: Enable and start Docker service
+  service:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Enable unattended upgrades
+  copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+- name: Configure fail2ban with default config
+  service:
+    name: fail2ban
+    state: started
+    enabled: true
+
+- name: Set default policy to deny incoming and allow outgoing
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+
+- name: Set default policy to allow outgoing
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+
+- name: Allow SSH
+  community.general.ufw:
+    rule: allow
+    port: 22
+    proto: tcp
+
+- name: Allow HTTP
+  community.general.ufw:
+    rule: allow
+    port: 80
+    proto: tcp
+
+- name: Allow HTTPS
+  community.general.ufw:
+    rule: allow
+    port: 443
+    proto: tcp
+
+- name: Allow DNS over TCP
+  community.general.ufw:
+    rule: allow
+    port: 53
+    proto: tcp
+
+- name: Allow DNS over UDP
+  community.general.ufw:
+    rule: allow
+    port: 53
+    proto: udp
+
+- name: Allow custom application ports
+  community.general.ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop:
+    - 8080
+    - 8081
+    - 3001
+    - 9191
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+    logging: on
+
+
+- name: Harden sshd_config
+  blockinfile:
+    path: /etc/ssh/sshd_config
+    block: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      AllowUsers yornik
+    marker: "# {mark} ANSIBLE-MANAGED BLOCK"
+  notify: Restart SSH
+
+
+- name: Create non-root admin user
+  user:
+    name: yornik
+    groups: sudo, docker
+    shell: /bin/zsh
+    state: present
+    create_home: yes
+
+- name: Add SSH key for user
+  authorized_key:
+    user: yornik
+    state: present
+    key: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
+
+- name: Allow passwordless sudo
+  copy:
+    dest: /etc/sudoers.d/90-yornik
+    content: "yornik ALL=(ALL) NOPASSWD:ALL"
+    mode: '0440'
+
+- name: Harden sysctl parameters
+  copy:
+    dest: /etc/sysctl.d/99-custom-hardening.conf
+    content: |
+      # IP spoofing protection
+      net.ipv4.conf.all.rp_filter = 1
+      net.ipv4.conf.default.rp_filter = 1
+
+      # Ignore ICMP broadcast requests
+      net.ipv4.icmp_echo_ignore_broadcasts = 1
+
+      # Ignore bogus ICMP errors
+      net.ipv4.icmp_ignore_bogus_error_responses = 1
+
+      # Do not accept source routing
+      net.ipv4.conf.all.accept_source_route = 0
+      net.ipv4.conf.default.accept_source_route = 0
+
+      # Disable redirects
+      net.ipv4.conf.all.accept_redirects = 0
+      net.ipv6.conf.all.accept_redirects = 0
+      net.ipv4.conf.default.accept_redirects = 0
+      net.ipv6.conf.default.accept_redirects = 0
+      net.ipv4.conf.all.send_redirects = 0
+      net.ipv4.conf.default.send_redirects = 0
+
+      # Enable SYN cookies (prevent SYN flood DoS)
+      net.ipv4.tcp_syncookies = 1
+
+      # Log martians
+      net.ipv4.conf.all.log_martians = 1
+      net.ipv4.conf.default.log_martians = 1
+
+      # Disable IPv6 if you want
+      # net.ipv6.conf.all.disable_ipv6 = 1
+      # net.ipv6.conf.default.disable_ipv6 = 1
+
+      # TCP settings
+      net.ipv4.tcp_timestamps = 0
+      net.ipv4.tcp_max_syn_backlog = 4096
+      net.ipv4.tcp_synack_retries = 2
+      net.ipv4.tcp_syn_retries = 2
+  notify: Apply sysctl settings
+
