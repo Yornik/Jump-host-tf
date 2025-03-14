@@ -1,0 +1,83 @@
+---
+
+- name: Fetch latest Headscale version from RSS feed
+  uri:
+    url: "https://github.com/juanfont/headscale/releases.atom"
+    return_content: yes
+  register: headscale_rss
+  changed_when: false
+
+- name: Extract latest version from RSS
+  set_fact:
+    headscale_version: "{{ headscale_rss.content | regex_search('<title>v([0-9.]+)</title>', '\\1') | first }}"
+
+- name: Check currently installed Headscale version
+  command: headscale version
+  register: installed_headscale_version
+  failed_when: false
+  changed_when: false
+
+- name: Set installed version fact (strip v prefix)
+  set_fact:
+    installed_headscale_version: "{{ installed_headscale_version.stdout | regex_search('v([0-9.]+)', '\\1') }}"
+
+- name: Download Headscale .deb package
+  get_url:
+    url: "https://github.com/juanfont/headscale/releases/latest/download/headscale_{{ headscale_version }}_linux_arm64.deb"
+    dest: "/tmp/headscale_{{ headscale_version }}_linux_arm64.deb"
+  when: headscale_version != installed_headscale_version
+
+- name: Install Headscale package
+  apt:
+    deb: "/tmp/headscale_{{ headscale_version }}_linux_arm64.deb"
+  when: headscale_version != installed_headscale_version
+
+- name: Configure Headscale
+  template:
+    src: "config.yaml.j2"
+    dest: "/etc/headscale/config.yaml"
+    owner: headscale
+    group: headscale
+    mode: '0644'
+  notify: Restart Headscale
+
+- name: Enable and start Headscale service
+  systemd:
+    name: headscale
+    enabled: yes
+    state: started
+
+- name: Check if user exists
+  command: headscale users list --output json
+  register: headscale_users
+  changed_when: false
+
+- name: Create user if not exists
+  command: headscale user create {{ headscale_initial_user }}
+  when: headscale_initial_user not in (
+          headscale_users.stdout | from_json | map(attribute='name') | list
+        )
+
+- name: Check if preauth key file exists
+  stat:
+    path: "{{ headscale_preauth_key_path }}"
+  register: preauth_key_file
+
+- name: Create initial reusable preauth key
+  command: headscale preauthkeys create --user {{ headscale_initial_user }} --expiration {{ headscale_preauth_key_expiry }} --reusable
+  register: headscale_preauth_key
+  when: not preauth_key_file.stat.exists
+  changed_when: headscale_preauth_key.rc == 0
+
+- name: Save preauth key to file
+  copy:
+    dest: "{{ headscale_preauth_key_path }}"
+    content: "{{ headscale_preauth_key.stdout }}"
+    mode: '0600'
+  when: headscale_preauth_key.changed
+
+- name: Show preauth key only if created
+  debug:
+    msg: "New Headscale Preauth Key: {{ headscale_preauth_key.stdout }}"
+  when: headscale_preauth_key.changed
+

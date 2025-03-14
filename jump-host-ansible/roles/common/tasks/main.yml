@@ -119,9 +119,7 @@
     port: "{{ item }}"
     proto: tcp
   loop:
-    - 8080
     - 8081
-    - 3001
     - 9191
 
 - name: Enable UFW
