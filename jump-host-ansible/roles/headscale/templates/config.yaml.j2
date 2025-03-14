@@ -1,0 +1,30 @@
+server_url: "https://{{ inventory_hostname }}.yornik.nl"
+listen_addr: "127.0.0.1:8080"
+private_key_path: /var/lib/headscale/private.key
+noise:
+  private_key_path: /var/lib/headscale/noise_private.key
+database:
+  type: sqlite3
+sqlite:
+  path: /var/lib/headscale/db.sqlite
+  write_ahead_log: true
+  wal_autocheckpoint: 1000
+log:
+  format: json
+  level: info
+prefixes:
+  v6: fd7a:115c:a1e0::/48
+  v4: 100.64.0.0/10
+  allocation: random
+dns:
+  magic_dns: true
+  base_domain: bro-cloud.org
+  nameservers:
+    global:
+      - 1.1.1.1
+      - 1.0.0.1
+      - 2606:4700:4700::1111
+      - 2606:4700:4700::1001
+derp:
+  urls:
+    - https://controlplane.tailscale.com/derpmap/default

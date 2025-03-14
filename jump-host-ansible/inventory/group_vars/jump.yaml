@@ -1,0 +1,5 @@
+---
+headscale_initial_user: yornik
+headscale_preauth_key_expiry: 168h
+headscale_preauth_key_path: /var/lib/headscale/initial_preauth_key.txt
+

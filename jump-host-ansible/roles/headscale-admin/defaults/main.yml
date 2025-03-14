@@ -1,0 +1,4 @@
+---
+compose_project: headscale-admin
+headscale_admin_password: 'your_secure_password'
+
