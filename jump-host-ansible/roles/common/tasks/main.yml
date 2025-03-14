@@ -19,6 +19,8 @@
       - zsh
       - apt-transport-https
       - software-properties-common
+      - logrotate
+      - xz-utils
     state: present
 
 - name: Install Docker dependencies
@@ -202,4 +204,26 @@
       net.ipv4.tcp_synack_retries = 2
       net.ipv4.tcp_syn_retries = 2
   notify: Apply sysctl settings
+
+- name: Configure logrotate for system and SSH logs with xz (-6)
+  copy:
+    dest: /etc/logrotate.d/system-logs-xz
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      /var/log/syslog
+      /var/log/auth.log {
+          weekly
+          rotate 4
+          missingok
+          notifempty
+          delaycompress
+          compress
+          compresscmd /usr/bin/xz
+          compressext .xz
+          compressoptions -6
+          copytruncate
+          create 0640 root adm
+      }
 

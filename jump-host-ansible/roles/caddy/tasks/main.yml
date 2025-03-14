@@ -1,0 +1,81 @@
+---
+- name: Install Caddy dependecies via APT repository
+  apt:
+    state: present
+    update_cache: yes
+    name:
+      - debian-keyring
+      - debian-archive-keyring
+      - apt-transport-https
+      - curl
+
+- name: Download and convert caddy release key
+  shell:
+    cmd: "curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg"
+    creates: /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+
+- name: Add Caddy APT source list
+  get_url:
+    url: https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt
+    dest: /etc/apt/sources.list.d/caddy-stable.list
+    mode: '0644'
+
+- name: Install Caddy
+  apt:
+    name: caddy
+    update_cache: yes
+    state: present
+
+- name: Deploy Caddyfile
+  template:
+    src: Caddyfile.j2
+    dest: /etc/caddy/Caddyfile
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Reload Caddy
+
+- name: Ensure Caddy is running and enabled
+  service:
+    name: caddy
+    state: started
+    enabled: true
+
+- name: Copy fail2ban caddy filter
+  copy:
+    src: caddy-4xx-abuse.conf
+    dest: /etc/fail2ban/filter.d/caddy-4xx-abuse.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart fail2ban
+- name: Copy fail2ban jail config
+  copy:
+    src: jail.d/caddy.conf
+    dest: /etc/fail2ban/jail.d/caddy.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart fail2ban
+
+- name: Configure logrotate for Caddy logs with xz (-6)
+  copy:
+    dest: /etc/logrotate.d/caddy
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      /var/log/caddy/*.log {
+          weekly
+          rotate 4
+          missingok
+          notifempty
+          delaycompress
+          compress
+          compresscmd /usr/bin/xz
+          compressext .xz
+          compressoptions -6
+          copytruncate
+          create 0640 caddy adm
+      }
+
