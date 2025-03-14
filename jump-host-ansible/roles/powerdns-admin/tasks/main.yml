@@ -1,0 +1,43 @@
+---
+- name: Include PowerDNS-admin secrets
+  include_vars: vars/secrets.yml
+
+- name: Create PowerDNS Admin directory
+  file:
+    path: /opt/pdns-admin
+    state: directory
+    owner: root
+    group: root
+    mode: '0777'
+
+- name: Ensure /opt/pdns-admin/data exists
+  file:
+    path: /opt/pdns-admin/data
+    state: directory
+    owner: root
+    group: root
+    mode: '0777'
+
+- name: Deploy Docker Compose config
+  template:
+    src: docker-compose.yml.j2
+    dest: /opt/pdns-admin/docker-compose.yml
+
+- name: Deploy admin env file
+  template:
+    src: admin.env.j2
+    dest: /opt/pdns-admin/admin.env
+    mode: '0600'
+
+- name: Copy systemd unit file
+  template:
+    src: docker-compose@pdns-admin.service.j2
+    dest: /etc/systemd/system/docker-compose@pdns-admin.service
+    mode: '0644'
+
+- name: Reload systemd and start PowerDNS Admin
+  systemd:
+    name: docker-compose@pdns-admin.service
+    daemon_reload: true
+    enabled: true
+    state: started

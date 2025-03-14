@@ -1,0 +1,73 @@
+---
+- name: Include PowerDNS secrets
+  include_vars: vars/secret.yml
+
+- name: Stop and disable systemd-resolved
+  systemd:
+    name: systemd-resolved
+    state: stopped
+    enabled: no
+
+- name: Configure NetworkManager to manage DNS
+  ini_file:
+    path: /etc/NetworkManager/NetworkManager.conf
+    section: main
+    option: dns
+    value: default
+    mode: '0644'
+  notify:
+    - Restart NetworkManager
+
+- name: Create /etc/resolv.conf with specified DNS servers
+  copy:
+    dest: /etc/resolv.conf
+    content: |
+      nameserver 8.8.8.8
+      nameserver 8.8.4.4
+    mode: '0644'
+
+
+- name: Install PowerDNS
+  apt:
+    name:
+      - pdns-server
+      - pdns-backend-sqlite3
+    state: present
+    update_cache: true
+
+- name: Create SQLite directory
+  file:
+    path: /var/lib/powerdns
+    state: directory
+    owner: pdns
+    group: pdns
+    mode: '0755'
+
+- name: Create PowerDNS SQLite schema
+  command: sqlite3 /var/lib/powerdns/pdns.sqlite3 < /usr/share/pdns-backend-sqlite3/schema/schema.sqlite3.sql
+  args:
+    creates: /var/lib/powerdns/pdns.sqlite3
+
+- name: Ensure SQLite DB has correct permissions
+  file:
+    path: /var/lib/powerdns/pdns.sqlite3
+    owner: pdns
+    group: pdns
+    mode: '0640'
+
+
+- name: Configure PowerDNS using template
+  template:
+    src: pdns.conf.j2
+    dest: /etc/powerdns/pdns.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart PowerDNS
+
+- name: Ensure PowerDNS is enabled and running
+  systemd:
+    name: pdns
+    enabled: yes
+    state: started
+

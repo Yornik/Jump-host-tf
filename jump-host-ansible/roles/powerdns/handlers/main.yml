@@ -1,0 +1,11 @@
+---
+
+- name: Restart PowerDNS
+  systemd:
+    name: pdns
+    state: restarted
+    daemon_reload: yes
+- name: Restart NetworkManager
+  systemd:
+    name: NetworkManager
+    state: restarted

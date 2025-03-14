@@ -1,0 +1,11 @@
+launch=gsqlite3
+gsqlite3-database=/var/lib/powerdns/pdns.sqlite3
+api=yes
+api-key={{ pdns_api_key }}
+webserver=yes
+webserver-address=127.0.0.1
+webserver-port=8081
+default-ttl=60
+allow-axfr-ips=127.0.0.1
+gsqlite3-dnssec=yes
+default-api-rectify=yes

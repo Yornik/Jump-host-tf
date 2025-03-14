@@ -9,7 +9,12 @@
 
 https://jump.yornik.nl {
   reverse_proxy /admin* 127.0.0.1:3000
-  reverse_proxy /dns* 127.0.0.1:9191
   reverse_proxy * 127.0.0.1:8080
 }
 
+https://dnsapi.yornik.nl {
+  reverse_proxy 127.0.0.1:8081
+}
+https://dnsadmin.yornik.nl {
+  reverse_proxy 127.0.0.1:9191
+}

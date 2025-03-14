@@ -1,0 +1,11 @@
+services:
+  pdns-admin:
+    image: powerdnsadmin/pda-legacy:latest
+    container_name: powerdns-admin
+    restart: always
+    ports:
+      - "127.0.0.1:9191:80"
+    env_file:
+      - admin.env
+    volumes:
+      - /opt/pdns-admin:/data
