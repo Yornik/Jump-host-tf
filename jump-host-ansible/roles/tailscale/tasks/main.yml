@@ -1,0 +1,28 @@
+---
+
+- name: Download release key tailscale key
+  get_url:
+    url: https://pkgs.tailscale.com/stable/ubuntu/noble.noarmor.gpg
+    dest: /usr/share/keyrings/tailscale-archive-keyring.gpg
+
+- name: Add tailscale APT source list
+  get_url:
+    url: https://pkgs.tailscale.com/stable/ubuntu/noble.tailscale-keyring.list
+    dest: /etc/apt/sources.list.d/tailscale.list
+    mode: '0644'
+
+- name: Install Tailscale
+  ansible.builtin.package:
+    name: tailscale
+    update_cache: yes
+    state: present
+
+- name: Enable and start Tailscale service
+  ansible.builtin.systemd:
+    name: tailscaled
+    enabled: yes
+    state: started
+
+- name: Authenticate Tailscale with custom login server
+  ansible.builtin.command: tailscale up --login-server=https://jump.yornik.nl --authkey={{ tailscale_authkey }}
+  when: tailscale_authkey != ""

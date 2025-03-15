@@ -5,17 +5,16 @@ noise:
   private_key_path: /var/lib/headscale/noise_private.key
 database:
   type: sqlite3
-sqlite:
-  path: /var/lib/headscale/db.sqlite
-  write_ahead_log: true
-  wal_autocheckpoint: 1000
+  sqlite:
+    path: /var/lib/headscale/db.sqlite
+    write_ahead_log: true
+    wal_autocheckpoint: 1000
 log:
   format: json
   level: info
 prefixes:
   v6: fd7a:115c:a1e0::/48
   v4: 100.64.0.0/10
-  allocation: random
 dns:
   magic_dns: true
   base_domain: bro-cloud.org
