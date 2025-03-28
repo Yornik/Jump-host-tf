@@ -18,15 +18,6 @@
   notify:
     - Restart NetworkManager
 
-- name: Create /etc/resolv.conf with specified DNS servers
-  copy:
-    dest: /etc/resolv.conf
-    content: |
-      nameserver 8.8.8.8
-      nameserver 8.8.4.4
-    mode: '0644'
-
-
 - name: Install PowerDNS
   apt:
     name:

@@ -37,4 +37,4 @@ override.tf.json
 terraform.rc
 roles/powerdns/vars/secrets.yml
 secrets.yml
-secrets.yml
+secret.yml

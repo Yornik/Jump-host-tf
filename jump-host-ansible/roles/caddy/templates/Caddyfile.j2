@@ -7,6 +7,11 @@
   }
 }
 
+(headscale_auth_only_tailscale) {
+	@not_tailscale not remote_ip 100.64.0.0/10 127.0.0.1
+	respond @not_tailscale "Access denied: Tailscale only" 403
+}
+
 https://jump.yornik.nl {
   reverse_proxy /admin* 127.0.0.1:3000
   reverse_proxy * 127.0.0.1:8080

@@ -24,5 +24,5 @@
     state: started
 
 - name: Authenticate Tailscale with custom login server
-  ansible.builtin.command: tailscale up --login-server=https://jump.yornik.nl --authkey={{ tailscale_authkey }}
+  ansible.builtin.command: tailscale up --accept-routes --advertise-exit-node --login-server=https://jump.yornik.nl --authkey={{ tailscale_authkey }}
   when: tailscale_authkey != ""
