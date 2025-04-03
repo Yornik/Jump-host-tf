@@ -1,26 +1,85 @@
 {
   email yornik@yornik.nl
+
   log {
     output file /var/log/caddy/access.log
     level INFO
     format json
   }
+
+  metrics
+
+  acme_dns powerdns {
+    api_token {{ pdns_api_key }}
+    server_url https://dnsapi.yornik.nl
+    server_id localhost
+  }
+
+  header {
+    Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "SAMEORIGIN"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Permissions-Policy "geolocation=(), microphone=()"
+  }
+}
+
+(rate_limit_default) {
+  rate_limit default {
+    zone ip_zone {
+      key {remote_ip}
+      window 1m
+      events 150
+    }
+    deny_status 429
+  }
 }
 
 (headscale_auth_only_tailscale) {
-	@not_tailscale not remote_ip 100.64.0.0/10 127.0.0.1
-	respond @not_tailscale "Access denied: Tailscale only" 403
+  @not_tailscale not remote_ip 100.64.0.0/10 127.0.0.1
+  respond @not_tailscale "Access denied: Tailscale only" 403
 }
 
+{% if inventory_hostname == "jump1" %}
 https://jump.yornik.nl {
+  import rate_limit_default
+  rate_limit default
   reverse_proxy /admin* 127.0.0.1:3000
   reverse_proxy * 127.0.0.1:8080
+  handle /.well-known/security.txt {
+    root * /etc/caddy
+    file_server
+  }
 }
 
 https://dnsapi.yornik.nl {
+  import rate_limit_default
+  rate_limit default
   reverse_proxy 127.0.0.1:8081
+  handle /.well-known/security.txt {
+    root * /etc/caddy
+    file_server
+  }
 }
 
 https://dnsadmin.yornik.nl {
+  import rate_limit_default
+  rate_limit default
   reverse_proxy 127.0.0.1:9191
+  handle /.well-known/security.txt {
+    root * /etc/caddy
+    file_server
+  }
 }
+{% endif %}
+
+https://grafana.yornik.eu {
+  import rate_limit_default
+  rate_limit default
+  reverse_proxy 10.96.200.55
+  handle /.well-known/security.txt {
+    root * /etc/caddy
+    file_server
+  }
+}
+

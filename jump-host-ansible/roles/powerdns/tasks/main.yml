@@ -35,7 +35,8 @@
     mode: '0755'
 
 - name: Create PowerDNS SQLite schema
-  command: sqlite3 /var/lib/powerdns/pdns.sqlite3 < /usr/share/pdns-backend-sqlite3/schema/schema.sqlite3.sql
+  shell: |
+    sqlite3 /var/lib/powerdns/pdns.sqlite3 < /usr/share/pdns-backend-sqlite3/schema/schema.sqlite3.sql
   args:
     creates: /var/lib/powerdns/pdns.sqlite3
 

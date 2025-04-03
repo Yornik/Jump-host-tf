@@ -156,13 +156,22 @@
     content: "yornik ALL=(ALL) NOPASSWD:ALL"
     mode: '0440'
 
+
+
+- name: forwarding sysctl parameters
+  copy:
+    dest: /etc/sysctl.d/98-forwarding.conf
+    content: |
+      net.ipv4.ip_forward = 1
+      net.ipv6.conf.all.forwarding = 1
+      net.ipv4.conf.all.rp_filter = 0
+      net.ipv4.conf.default.rp_filter = 0
+  notify: Apply sysctl settings
+
 - name: Harden sysctl parameters
   copy:
     dest: /etc/sysctl.d/99-custom-hardening.conf
     content: |
-      # IP spoofing protection
-      net.ipv4.conf.all.rp_filter = 1
-      net.ipv4.conf.default.rp_filter = 1
 
       # Ignore ICMP broadcast requests
       net.ipv4.icmp_echo_ignore_broadcasts = 1

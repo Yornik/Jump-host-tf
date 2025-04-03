@@ -1,14 +1,17 @@
-- name: Configure Jump Host Server
-  hosts: jump
+- name: Configure Jump Hosts
+  hosts: jump1:jump2
   become: true
-
   roles:
-    - common
-    - caddy
-    - headscale
-    - headscale-admin
-    - powerdns
-    - powerdns-admin
-    - tailscale
-    - node-exporter
-    - promtail
+    - role: common
+    - role: caddy
+    - role: headscale
+      when: inventory_hostname == "jump1"
+    - role: headscale-admin
+      when: inventory_hostname == "jump1"
+    - role: powerdns
+    - role: powerdns-admin
+      when: inventory_hostname == "jump1"
+    - role: tailscale
+    - role: node-exporter
+    - role: promtail
+

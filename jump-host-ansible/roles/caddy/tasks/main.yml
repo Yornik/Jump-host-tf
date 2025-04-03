@@ -1,30 +1,109 @@
 ---
-- name: Install Caddy dependecies via APT repository
-  apt:
-    state: present
-    update_cache: yes
-    name:
-      - debian-keyring
-      - debian-archive-keyring
-      - apt-transport-https
-      - curl
+- name: Include PowerDNS secrets
+  include_vars: vars/secret.yml
 
-- name: Download and convert caddy release key
-  shell:
-    cmd: "curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg"
-    creates: /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+- name: Ensure Caddy directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /etc/caddy
+    - /var/log/caddy
+    - /var/lib/caddy
 
-- name: Add Caddy APT source list
+- name: Read current installed Caddy version (if exists)
+  stat:
+    path: /etc/caddy/VERSION
+  register: caddy_version_file
+
+- name: Load current installed version
+  command: cat /etc/caddy/VERSION
+  register: installed_version
+  when: caddy_version_file.stat.exists
+  changed_when: false
+  failed_when: false
+
+- name: Get latest Caddy release tag from GitHub (Atom feed)
+  shell: |
+    curl -s https://github.com/Yornik/powerdns-caddy/releases.atom | \
+    grep -m1 '<title>' | sed 's/<[^>]*>//g'
+  register: latest_release_tag
+  changed_when: false
+
+- name: Set release tag fact
+  set_fact:
+    caddy_release_tag: "{{ latest_release_tag.stdout | trim }}"
+
+- name: Compare installed and latest versions
+  set_fact:
+    caddy_needs_update: "{{ installed_version.stdout != caddy_release_tag }}"
+  when: caddy_version_file.stat.exists
+
+- name: Force install if version file does not exist
+  set_fact:
+    caddy_needs_update: true
+  when: not caddy_version_file.stat.exists
+
+- name: Download custom Caddy release tarball
   get_url:
-    url: https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt
-    dest: /etc/apt/sources.list.d/caddy-stable.list
+    url: "https://github.com/Yornik/powerdns-caddy/releases/download/{{ caddy_release_tag }}/custom-caddy-{{ caddy_release_tag }}.tar.gz"
+    dest: "/tmp/custom-caddy.tar.gz"
+    mode: '0644'
+  when: caddy_needs_update | default(true)
+
+- name: Extract custom Caddy
+  unarchive:
+    src: "/tmp/custom-caddy.tar.gz"
+    dest: "/usr/local/bin/custom-caddy"
+    remote_src: yes
+    creates: "/usr/local/bin/custom-caddy/caddy"
+  when: caddy_needs_update | default(true)
+
+- name: Install new Caddy binary
+  copy:
+    src: "/usr/local/bin/custom-caddy/caddy"
+    dest: "/usr/local/bin/caddy"
+    mode: '0755'
+    remote_src: yes
+  when: caddy_needs_update | default(true)
+  notify: Restart Caddy
+
+- name: Save installed version tag
+  copy:
+    content: "{{ caddy_release_tag }}"
+    dest: /etc/caddy/VERSION
+    mode: '0644'
+  when: caddy_needs_update | default(true)
+
+- name: Ensure Caddy directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /etc/caddy
+    - /var/log/caddy
+    - /var/lib/caddy
+
+- name: Ensure .well-known directory exists
+  file:
+    path: /etc/caddy/.well-known
+    state: directory
+    mode: '0755'
+
+- name: Deploy dynamic security.txt
+  template:
+    src: security.txt.j2
+    dest: /etc/caddy/.well-known/security.txt
     mode: '0644'
 
-- name: Install Caddy
-  apt:
-    name: caddy
-    update_cache: yes
-    state: present
+- name: Install systemd service for Caddy
+  copy:
+    src: caddy.service
+    dest: /etc/systemd/system/caddy.service
+    mode: '0644'
+  notify: Reload systemd
 
 - name: Deploy Caddyfile
   template:

@@ -1,3 +1,4 @@
+{% if inventory_hostname == "jump1" %}
 launch=gsqlite3
 gsqlite3-database=/var/lib/powerdns/pdns.sqlite3
 api=yes
@@ -6,6 +7,21 @@ webserver=yes
 webserver-address=127.0.0.1
 webserver-port=8081
 default-ttl=60
-allow-axfr-ips=127.0.0.1
+allow-axfr-ips=127.0.0.1,100.64.0.2
+also-notify=100.64.0.2
 gsqlite3-dnssec=yes
 default-api-rectify=yes
+version-string=anonymous
+{% endif %}
+
+{% if inventory_hostname != "jump1" %}
+launch=gsqlite3
+gsqlite3-database=/var/lib/powerdns/pdns.sqlite3
+api=no
+default-api-rectify=yes
+default-ttl=60
+gsqlite3-dnssec=yes
+allow-axfr-ips=127.0.0.1
+slave=yes
+version-string=anonymous
+{% endif %}
