@@ -209,6 +209,31 @@
       net.ipv4.tcp_syn_retries = 2
   notify: Apply sysctl settings
 
+- name: Check if k8s CoreDNS IP is already in /etc/resolv.conf
+  shell: grep -q '^nameserver 10.96.0.10' /etc/resolv.conf
+  register: resolv_has_coredns
+  failed_when: false
+  changed_when: false
+
+- name: Remove immutable flag from /etc/resolv.conf if CoreDNS is missing
+  command: chattr -i /etc/resolv.conf
+  when: resolv_has_coredns.rc != 0
+
+- name: Rewrite /etc/resolv.conf with CoreDNS + fallback only if missing
+  copy:
+    dest: /etc/resolv.conf
+    content: |
+      nameserver 10.96.0.10
+      nameserver 1.1.1.1
+    owner: root
+    group: root
+    mode: '0644'
+  when: resolv_has_coredns.rc != 0
+
+- name: Lock resolv.conf to prevent overrides
+  command: chattr +i /etc/resolv.conf
+  when: resolv_has_coredns.rc != 0
+
 - name: Configure logrotate for system and SSH logs with xz (-6)
   copy:
     dest: /etc/logrotate.d/system-logs-xz
