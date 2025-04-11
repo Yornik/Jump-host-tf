@@ -9,12 +9,15 @@
 
   metrics
 
-  acme_dns powerdns {
-    api_token {{ pdns_api_key }}
-    server_url https://dnsapi.yornik.nl
-    server_id localhost
+  storage redis {
+    host     redis-master.infra.svc.cluster.local
+    port     6379
+    database 0
   }
+  resolvers 10.96.0.10 1.1.1.1
+}
 
+(security_headers) {
   header {
     Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
     X-Content-Type-Options "nosniff"
@@ -25,13 +28,20 @@
 }
 
 (rate_limit_default) {
-  rate_limit default {
+  @all path *
+
+  rate_limit @all {
     zone ip_zone {
       key {remote_ip}
       window 1m
-      events 150
+      events 300
     }
-    deny_status 429
+
+    storage redis {
+      host     redis-master.infra.svc.cluster.local
+      port     6379
+      database 1 
+    }
   }
 }
 
@@ -43,9 +53,11 @@
 {% if inventory_hostname == "jump1" %}
 https://jump.yornik.nl {
   import rate_limit_default
-  rate_limit default
+  import security_headers
+
   reverse_proxy /admin* 127.0.0.1:3000
   reverse_proxy * 127.0.0.1:8080
+
   handle /.well-known/security.txt {
     root * /etc/caddy
     file_server
@@ -54,8 +66,10 @@ https://jump.yornik.nl {
 
 https://dnsapi.yornik.nl {
   import rate_limit_default
-  rate_limit default
+  import security_headers
+
   reverse_proxy 127.0.0.1:8081
+
   handle /.well-known/security.txt {
     root * /etc/caddy
     file_server
@@ -64,8 +78,10 @@ https://dnsapi.yornik.nl {
 
 https://dnsadmin.yornik.nl {
   import rate_limit_default
-  rate_limit default
+  import security_headers
+
   reverse_proxy 127.0.0.1:9191
+
   handle /.well-known/security.txt {
     root * /etc/caddy
     file_server
@@ -75,8 +91,10 @@ https://dnsadmin.yornik.nl {
 
 https://grafana.yornik.eu {
   import rate_limit_default
-  rate_limit default
-  reverse_proxy 10.96.200.55
+  import security_headers
+
+  reverse_proxy monitoring-grafana.monitoring.svc.cluster.local
+
   handle /.well-known/security.txt {
     root * /etc/caddy
     file_server

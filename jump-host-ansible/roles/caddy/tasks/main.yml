@@ -24,10 +24,11 @@
   changed_when: false
   failed_when: false
 
-- name: Get latest Caddy release tag from GitHub (Atom feed)
+- name: Get latest Caddy release tag from GitHub Atom feed
   shell: |
     curl -s https://github.com/Yornik/powerdns-caddy/releases.atom | \
-    grep -m1 '<title>' | sed 's/<[^>]*>//g'
+    grep -oPm1 "(?<=<link rel=\"alternate\" type=\"text/html\" href=\")[^\"]+" | \
+    sed 's|.*/tag/||'
   register: latest_release_tag
   changed_when: false
 
@@ -45,27 +46,11 @@
     caddy_needs_update: true
   when: not caddy_version_file.stat.exists
 
-- name: Download custom Caddy release tarball
+- name: Download custom Caddy binary
   get_url:
-    url: "https://github.com/Yornik/powerdns-caddy/releases/download/{{ caddy_release_tag }}/custom-caddy-{{ caddy_release_tag }}.tar.gz"
-    dest: "/tmp/custom-caddy.tar.gz"
-    mode: '0644'
-  when: caddy_needs_update | default(true)
-
-- name: Extract custom Caddy
-  unarchive:
-    src: "/tmp/custom-caddy.tar.gz"
-    dest: "/usr/local/bin/custom-caddy"
-    remote_src: yes
-    creates: "/usr/local/bin/custom-caddy/caddy"
-  when: caddy_needs_update | default(true)
-
-- name: Install new Caddy binary
-  copy:
-    src: "/usr/local/bin/custom-caddy/caddy"
+    url: "https://github.com/Yornik/powerdns-caddy/releases/download/{{ latest_release_tag.stdout }}/caddy-arm64"
     dest: "/usr/local/bin/caddy"
     mode: '0755'
-    remote_src: yes
   when: caddy_needs_update | default(true)
   notify: Restart Caddy
 
